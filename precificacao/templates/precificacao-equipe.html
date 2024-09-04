@@ -1,0 +1,218 @@
+<!-- templates/precificacao-equipe.html -->
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Precificação de Equipe{% endblock %}
+
+{% block content %}
+    {% load static %}
+    <h1 class="mt-5" style="text-align: center;">Precificação de Equipe</h1>
+    <form method="post" id="" class="mt-3" style="padding: 20px;">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="qtd_funcionario_cliente">Quantidade de Funcionários:</label>
+            <input type="number" class="form-control" id="id_qtd_funcionario_cliente" name="qtd_funcionario_cliente" placeholder="Número de Funcionários do Cliente">
+        </div>
+        <div class="form-row">
+            <div class="form-group col-md-6">
+                <label for="id_lucro_desejado">Lucro Desejado:</label>
+                <input type="number" class="form-control" id="id_lucro_desejado" name="lucro_desejado">
+            </div>
+            <div class="form-group col-md-6">
+                <label for="id_ipca">IPCA:</label>
+                <input type="number" class="form-control" id="id_ipca" name="ipca">
+            </div>
+        </div>
+
+        <!-- Botões para Adicionar Diferentes Tipos de Cargos -->
+        <div class="form-row">
+            <div class="form-group col-md-4">
+                <button type="button" class="btn btn-outline-info btn-block mt-2" id="add_coordenador_junior">
+                    + Coordenador Júnior
+                </button>
+                <div id="coordenador_junior_fields"></div>
+            </div>
+            <div class="form-group col-md-4">
+                <button type="button" class="btn btn-outline-info btn-block mt-2" id="add_coordenador_pleno">
+                    + Coordenador Pleno
+                </button>
+                <div id="coordenador_pleno_fields"></div>
+            </div>
+            <div class="form-group col-md-4">
+                <button type="button" class="btn btn-outline-info btn-block mt-2" id="add_coordenador_senior">
+                    + Coordenador Sênior
+                </button>
+                <div id="coordenador_senior_fields"></div>
+            </div>
+            <div class="form-group col-md-4">
+                <button type="button" class="btn btn-outline-info btn-block mt-2" id="add_analista_junior">
+                    + Analista Júnior
+                </button>
+                <div id="analista_junior_fields"></div>
+            </div>
+            <div class="form-group col-md-4">
+                <button type="button" class="btn btn-outline-info btn-block mt-2" id="add_analista_pleno">
+                    + Analista Pleno
+                </button>
+                <div id="analista_pleno_fields"></div>
+            </div>
+            <div class="form-group col-md-4">
+                <button type="button" class="btn btn-outline-info btn-block mt-2" id="add_analista_senior">
+                    + Analista Sênior
+                </button>
+                <div id="analista_senior_fields"></div>
+            </div>
+            <div class="form-group col-md-6">
+                <button type="button" class="btn btn-outline-info btn-block mt-2" id="add_assistente">
+                    + Assistente
+                </button>
+                <div id="assistente_fields"></div>
+            </div>
+            <div class="form-group col-md-6">
+                <button type="button" class="btn btn-outline-info btn-block mt-2" id="add_auxiliar">
+                    + Auxiliar
+                </button>
+                <div id="auxiliar_fields"></div>
+            </div>
+        </div>
+
+        <button type="button" class="btn btn-primary mt-3" id="avancar-btn">Avançar</button>
+        <button type="button" class="btn btn-danger mt-3" id="limpar-btn">Limpar</button>
+
+        <!-- Modal Avançar -->
+        <div class="modal fade" id="avancarModal" tabindex="-1" aria-labelledby="avancarModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="avancarModalLabel">Revisar e Calcular Valores</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body" id="modal-body-content">
+                        <!-- Conteúdo será gerado dinamicamente -->
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-success" id="calcular-btn">Calcular</button>
+                        <button type="button" class="btn btn-danger" data-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>    
+
+        <!-- Modal Resultados -->
+        <div class="modal fade" id="resultadosModal" tabindex="-1" role="dialog" aria-labelledby="resultadosModalLabel" aria-hidden="true" style="max-height:100%; max-width: 100%; overflow-y: auto;">
+            <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="resultadosModalLabel">Resultados Calculados</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body" id="modal-body-content">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Cargo</th>
+                                    <th>Descrição</th>
+                                    <th>Valor (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cargoTabela">
+                                <!-- As linhas da tabela serão inseridas aqui via JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" id="salvar" class="btn btn-primary">Salvar</button>
+                        <button type="button" class="btn btn-danger" data-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </form>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJTy5KVphtPhzWj9WO1clHTMGaNSjkq6m56jUMz5sgF86f11Y" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-pjaaA8dDz/4+6bghyIedp5j00VXIikPoE4A1p6LY4DmlO8RAf2zR9CfbERZ6D5Fm" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+
+    <script src="{% static 'js/avancarModal.js' %}"></script>
+    <script src="{% static 'js/resultadosModal.js' %}"></script>
+
+    <script>
+        $(document).ready(function () {
+            let contador = {
+                coordenador_junior: 0,
+                coordenador_pleno: 0,
+                coordenador_senior: 0,
+                analista_junior: 0,
+                analista_pleno: 0,
+                analista_senior: 0,
+                assistente: 0,
+                auxiliar: 0
+            };
+
+            // Armazena todos os campos adicionados por tipo
+            let cargosAdicionados = {
+                coordenador_junior: [],
+                coordenador_pleno: [],
+                coordenador_senior: [],
+                analista_junior: [],
+                analista_pleno: [],
+                analista_senior: [],
+                assistente: [],
+                auxiliar: []
+            };
+
+            function adicionarCampo(tipo) {
+                contador[tipo]++;
+                const novoCampo = `
+                    <div class="input-group mb-3" style="padding-top: 5px;">
+                        <input type="text" class="form-control" id="${tipo}_${contador[tipo]}" name="${tipo}_${contador[tipo]}" placeholder="${tipo.replace('_', ' ').replace('_', ' ')} ${contador[tipo]}" data-tipo="${tipo}">
+                        <span class="input-group-text" id="basic-addon2">%</span>
+                    </div>
+                `;
+                $(`#${tipo}_fields`).append(novoCampo);
+            }
+
+            $('#add_coordenador_junior').on('click', function () {
+                adicionarCampo('coordenador_junior');
+            });
+            $('#add_coordenador_pleno').on('click', function () {
+                adicionarCampo('coordenador_pleno');
+            });
+            $('#add_coordenador_senior').on('click', function () {
+                adicionarCampo('coordenador_senior');
+            });
+            $('#add_analista_junior').on('click', function () {
+                adicionarCampo('analista_junior');
+            });
+            $('#add_analista_pleno').on('click', function () {
+                adicionarCampo('analista_pleno');
+            });
+            $('#add_analista_senior').on('click', function () {
+                adicionarCampo('analista_senior');
+            });
+            $('#add_assistente').on('click', function () {
+                adicionarCampo('assistente');
+            });
+            $('#add_auxiliar').on('click', function () {
+                adicionarCampo('auxiliar');
+            });
+
+            $('#limpar-btn').on('click', function () {
+                $('#id_qtd_funcionario_cliente').val('');
+                $('#id_lucro_desejado').val('');
+                $('#id_ipca').val('');
+                $('.input-group').remove();
+                for (let tipo in contador) {
+                    contador[tipo] = 0;
+                    cargosAdicionados[tipo] = [];
+                }
+            });
+        });
+    </script>        
+{% endblock %}
