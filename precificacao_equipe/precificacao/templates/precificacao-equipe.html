@@ -15,11 +15,11 @@
         </div>
         <div class="form-row">
             <div class="form-group col-md-6">
-                <label for="id_lucro_desejado">Lucro Desejado:</label>
+                <label for="id_lucro_desejado">Lucro Desejado (%):</label>
                 <input type="text" class="form-control"  name="lucro_desejado" id="lucro_desejado" placeholder="Lucro Desejado (%)">
             </div>
             <div class="form-group col-md-6">
-                <label for="id_ipca">IPCA:</label>
+                <label id="ipca-label" for="id_ipca">IPCA ():</label>
                 <input type="text" class="form-control" name="ipca" id="ipca" placeholder="IPCA (%)">
             </div>
         </div>
@@ -114,8 +114,40 @@
                         <!-- A tabela será inserida aqui pelo JavaScript -->
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-success">Salvar</button>
-                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Fechar</button>
+                        <button type="button" class="btn btn-success" id="salvar-btn">Salvar</button>
+                        <button type="button" class="btn btn-danger" data-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Salvar Informações -->
+        <div class="modal fade" id="salvarInformacoesModal" tabindex="-1" aria-labelledby="salvarInformacoesModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="salvarInformacoesModalLabel">Informações para Salvar</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="salvar-pdf-form">
+                            {% csrf_token %}
+                            <div class="form-group">
+                                <label for="nome_cliente">Nome do Cliente:</label>
+                                <input type="text" class="form-control" id="nome_cliente" name="nome_cliente" placeholder="Nome do Cliente" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="numero_proposta">Número da Proposta:</label>
+                                <input type="text" class="form-control" id="numero_proposta" name="numero_proposta" placeholder="Número da Proposta" required>
+                                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                            </div>
+                            <div class="form-group">
+                                <button type="button" id="salvar-pdf" class="btn btn-success">Salvar em PDF</button>
+                                <button type="button" class="btn btn-danger" data-dismiss="modal">Fechar</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -141,7 +173,7 @@
                 assistente: 0,
                 auxiliar: 0
             };
-
+    
             // Armazena todos os campos adicionados por tipo
             let cargosAdicionados = {
                 coordenador_junior: [],
@@ -153,17 +185,18 @@
                 assistente: [],
                 auxiliar: []
             };
-
+    
             function adicionarCampo(tipo) {
                 contador[tipo]++;
                 const novoCampo = `
                     <div class="input-group mb-3" style="padding-top: 5px;">
-                        <input type="number" class="form-control" id="${tipo}_${contador[tipo]}" name="${tipo}_${contador[tipo]}" placeholder="${tipo.replace('_', ' ').replace('_', ' ')} ${contador[tipo]}" data-tipo="${tipo}">
+                        <input type="number" class="form-control" id="${tipo}_${contador[tipo]}" name="${tipo}_${contador[tipo]}" placeholder="${tipo.replace('_', ' ')} ${contador[tipo]}" data-tipo="${tipo}">
                         <span class="input-group-text" id="basic-addon2">%</span>
                     </div>
                 `;
                 $(`#${tipo}_fields`).append(novoCampo);
             }
+    
 
             $('#add_coordenador_junior').on('click', function () {
                 adicionarCampo('coordenador_junior');
@@ -189,17 +222,39 @@
             $('#add_auxiliar').on('click', function () {
                 adicionarCampo('auxiliar');
             });
-
+    
             $('#limpar-btn').on('click', function () {
-                $('#id_qtd_funcionario_cliente').val('');
-                $('#id_lucro_desejado').val('');
-                $('#id_ipca').val('');
+                $('#qtd_funcionario_cliente').val('');
+                $('#lucro_desejado').val('');
+                $('#ipca').val('');
                 $('.input-group').remove();
                 for (let tipo in contador) {
                     contador[tipo] = 0;
                     cargosAdicionados[tipo] = [];
                 }
             });
-        });
-    </script>   
+
+            // Função para alterar o label com base na data atual
+            function atualizarLabelIPCA() {
+                const hoje = new Date();
+                const mesAtual = hoje.getMonth() + 1; // getMonth() retorna de 0 a 11, então somamos 1
+                const anoAtual = hoje.getFullYear();
+                let labelIPCA = '';
+
+                if (mesAtual >= 8) {
+                    // Se o mês atual for agosto ou posterior
+                    labelIPCA = `IPCA (08/${anoAtual} - ${mesAtual.toString().padStart(2, '0')}/${anoAtual}):`;
+                } else {
+                    // Se o mês atual for antes de agosto
+                    labelIPCA = `IPCA (08/${anoAtual - 1} - ${mesAtual.toString().padStart(2, '0')}/${anoAtual}):`;
+                }
+
+                // Atualizar o texto do label
+                document.getElementById('ipca-label').innerText = labelIPCA;
+            }
+
+            // Chamar a função para atualizar a label quando a página carregar
+            atualizarLabelIPCA();
+                });
+    </script>    
 {% endblock %}

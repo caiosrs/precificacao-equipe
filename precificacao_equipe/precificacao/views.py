@@ -1,9 +1,17 @@
 from django.shortcuts import render
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from datetime import datetime
 import json
 from django.views.decorators.csrf import csrf_exempt
 import locale
+from reportlab.lib.pagesizes import letter
+from reportlab.pdfgen import canvas
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+from reportlab.lib import colors
+from reportlab.lib.units import inch
+import io
+import pandas as pd
 
 # Define o local como Brasil para formatação monetária
 locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
@@ -41,12 +49,48 @@ def formatar_monetario(valor):
     except Exception as e:
         print(f"Erro ao formatar valor monetário: {e}")
         return valor
+    
+def salvar_pdf(request):
+    if request.method == 'POST':
+        try:
+            dados_cliente_proposta = json.loads(request.body.decode('utf-8'))
+            print('Dados recebidos no backend pdf:', dados_cliente_proposta)
+            nome_cliente = dados_cliente_proposta.get('nome_cliente')
+            numero_proposta = dados_cliente_proposta.get('numero_proposta')
+
+            # Criar o PDF
+            buffer = io.BytesIO()
+            p = canvas.Canvas(buffer)
+
+            p.drawString(100, 800, f"Nome do Cliente: {nome_cliente}")
+            p.drawString(100, 750, f"Numero da Proposta: {numero_proposta}")
+            p.drawString(100, 700, "Este é um exemplo de PDF.")
+            p.showPage()
+            p.save()
+
+            # Enviar PDF como resposta
+            pdf = buffer.getvalue()
+            buffer.close()
+            
+            response = HttpResponse(pdf, content_type='application/pdf')
+            response['Content-Disposition'] = 'attachment; filename="arquivo.pdf"'
+            return response
+        except json.JSONDecodeError:
+            print("Erro ao decodificar JSON.")
+            return JsonResponse({'status': 'error', 'message': 'Erro ao decodificar JSON na função Salvar PDF'}, status=400)
+        except ValueError as e:
+            print(f"Erro de valor: {e}")
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+        except Exception as e:
+            print(f"Erro ao calcular precificação: {e}")
+            return JsonResponse({'status': 'error', 'message': 'Erro interno do servidor'}, status=500)
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Método não permitido'}, status=405)
 
 @csrf_exempt
 def calculo_precificacao(request):
     if request.method == 'POST':
         try:
-            # Decodifica o JSON do corpo da requisição
             dados_cargos_salvos = json.loads(request.body.decode('utf-8'))
             print('Dados recebidos no backend:', dados_cargos_salvos)
 
@@ -60,59 +104,68 @@ def calculo_precificacao(request):
 
             for cargo, dados in dados_cargos_salvos.items():
                 if isinstance(dados, dict):
-                    salario_base_str = dados.get('1', {}).get('Salário Base', '0,00').strip().replace('.', '').replace(',', '.')
+                    for chave, item in dados.items():
+                        print(f'Processando item: {item}')  # Adicione este log
 
-                    try:
-                        salario_base = float(salario_base_str)
-                    except ValueError:
-                        salario_base = 0.0
+                        salario_base_str = item.get('Salário Base', '0,00').strip().replace('.', '').replace(',', '.')
 
-                    salario_dissidio = salario_base * indice_reajuste
-                    decimo_terceiro = salario_dissidio / 12
-                    ferias = decimo_terceiro * 0.33333
+                        try:
+                            salario_base = float(salario_base_str)
+                        except ValueError:
+                            salario_base = 0.0
 
-                    def parse_valor(valor_str):
-                        return float(valor_str.strip().replace('.', '').replace(',', '.')) if valor_str else 0
+                        salario_dissidio = salario_base * indice_reajuste
+                        decimo_terceiro = salario_dissidio / 12
+                        ferias = decimo_terceiro * 0.33333
 
-                    horas_extras = parse_valor(dados.get('1', {}).get('Horas Extras', '0,00'))
-                    gratificacao = parse_valor(dados.get('1', {}).get('Gratificação', '0,00'))
+                        def parse_valor(valor_str):
+                            return float(valor_str.strip().replace('.', '').replace(',', '.')) if valor_str else 0
 
-                    fgts = (salario_dissidio + decimo_terceiro + ferias) * 0.08
+                        horas_extras = parse_valor(item.get('Horas Extras', '0,00'))
+                        gratificacao = parse_valor(item.get('Gratificação', '0,00'))
 
-                    ass_medica = parse_valor(dados.get('1', {}).get('Ass. Médica', '0,00'))
-                    ass_odonto = parse_valor(dados.get('1', {}).get('Ass. Odont.', '0,00'))
-                    seguro = parse_valor(dados.get('1', {}).get('Seguro Vida', '0,00'))
-                    vr = parse_valor(dados.get('1', {}).get('Val. Refeição', '0,00'))
-                    va = parse_valor(dados.get('1', {}).get('Vale Alimentação', '0,00'))
-                    vt = parse_valor(dados.get('1', {}).get('Val. Transporte', '0,00'))
-                    gympass = parse_valor(dados.get('1', {}).get('Gympass', '0,00'))
-                    reembolso = parse_valor(dados.get('1', {}).get('Reembolso', '0,00'))
-                    comissao = parse_valor(dados.get('1', {}).get('Comissão', '0,00'))
-                    aux_creche = parse_valor(dados.get('1', {}).get('Auxílio Creche', '0,00'))
+                        fgts = (salario_dissidio + decimo_terceiro + ferias) * 0.08
 
-                    total = salario_dissidio + decimo_terceiro + ferias + horas_extras + gratificacao + fgts + ass_medica + ass_odonto + seguro + vr + va + vt + gympass + reembolso + comissao + aux_creche
+                        ass_medica = parse_valor(item.get('Ass. Médica', '0,00'))
+                        ass_odonto = parse_valor(item.get('Ass. Odont.', '0,00'))
+                        seguro = parse_valor(item.get('Seguro Vida', '0,00'))
+                        vr = parse_valor(item.get('Val. Refeição', '0,00'))
+                        va = parse_valor(item.get('Vale Alimentação', '0,00'))
+                        vt = parse_valor(item.get('Val. Transporte', '0,00'))
+                        gympass = parse_valor(item.get('Gympass', '0,00'))
+                        reembolso = parse_valor(item.get('Reembolso', '0,00'))
+                        comissao = parse_valor(item.get('Comissão', '0,00'))
+                        aux_creche = parse_valor(item.get('Auxílio Creche', '0,00'))
 
-                    resultados.append({
-                        'cargo': cargo,
-                        'salario_base': formatar_monetario(salario_base),
-                        'salario_dissidio': formatar_monetario(salario_dissidio),
-                        'decimo_terceiro': formatar_monetario(decimo_terceiro),
-                        'ferias': formatar_monetario(ferias),
-                        'horas_extras': formatar_monetario(horas_extras),
-                        'gratificacao': formatar_monetario(gratificacao),
-                        'fgts': formatar_monetario(fgts),
-                        'ass_medica': formatar_monetario(ass_medica),
-                        'ass_odonto': formatar_monetario(ass_odonto),
-                        'seguro': formatar_monetario(seguro),
-                        'vr': formatar_monetario(vr),
-                        'va': formatar_monetario(va),
-                        'vt': formatar_monetario(vt),
-                        'gympass': formatar_monetario(gympass),
-                        'reembolso': formatar_monetario(reembolso),
-                        'comissao': formatar_monetario(comissao),
-                        'aux_creche': formatar_monetario(aux_creche),
-                        'total': formatar_monetario(total)
-                    })
+                        # Extrai o valor do cargo do dicionário
+                        valor = parse_valor(item.get('valor', '0,00'))
+
+                        # Calcula o total incluindo o valor do cargo
+                        total = salario_dissidio + decimo_terceiro + ferias + horas_extras + gratificacao + fgts + ass_medica + ass_odonto + seguro + vr + va + vt + gympass + reembolso + comissao + aux_creche + valor
+
+                        # Adiciona o valor nos resultados
+                        resultados.append({
+                            'cargo': cargo,
+                            'valor': valor,
+                            'salario_base': formatar_monetario(salario_base),
+                            'salario_dissidio': formatar_monetario(salario_dissidio),
+                            'decimo_terceiro': formatar_monetario(decimo_terceiro),
+                            'ferias': formatar_monetario(ferias),
+                            'horas_extras': formatar_monetario(horas_extras),
+                            'gratificacao': formatar_monetario(gratificacao),
+                            'fgts': formatar_monetario(fgts),
+                            'ass_medica': formatar_monetario(ass_medica),
+                            'ass_odonto': formatar_monetario(ass_odonto),
+                            'seguro': formatar_monetario(seguro),
+                            'vr': formatar_monetario(vr),
+                            'va': formatar_monetario(va),
+                            'vt': formatar_monetario(vt),
+                            'gympass': formatar_monetario(gympass),
+                            'reembolso': formatar_monetario(reembolso),
+                            'comissao': formatar_monetario(comissao),
+                            'aux_creche': formatar_monetario(aux_creche),
+                            'total': formatar_monetario(total)
+                        })
 
             context = {
                 'qtd_funcionarios': qtd_funcionarios,
@@ -128,7 +181,7 @@ def calculo_precificacao(request):
 
         except json.JSONDecodeError:
             print("Erro ao decodificar JSON.")
-            return JsonResponse({'status': 'error', 'message': 'Erro ao decodificar JSON'}, status=400)
+            return JsonResponse({'status': 'error', 'message': 'Erro ao decodificar JSON na Funcao Calculo_precificacao'}, status=400)
         except ValueError as e:
             print(f"Erro de valor: {e}")
             return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
@@ -137,3 +190,4 @@ def calculo_precificacao(request):
             return JsonResponse({'status': 'error', 'message': 'Erro interno do servidor'}, status=500)
 
     return render(request, 'precificacao-equipe.html', {})
+

@@ -19,7 +19,10 @@ $(document).ready(function () {
     }
 
     $('#avancar-btn').on('click', function () {
+        $('#modal-body-content').empty();
+        dadosCargosSalvos = {};
         let modalBodyContent = '';
+
         let qtdFuncionarioCliente = $('#qtd_funcionario_cliente').val();
         let lucroDesejado = $('#lucro_desejado').val();
         let ipca = $('#ipca').val();
@@ -30,7 +33,7 @@ $(document).ready(function () {
 
         const dadosCargos = {
             'auxiliar': {
-                'Salário Base': '1.900,00',
+                'Salário Base': '1.819,86',
                 'Horas Extras': '0,00',
                 'Gratificação': '0,00',
                 'Ass. Médica': '450,00',
@@ -151,62 +154,73 @@ $(document).ready(function () {
             }
         };
 
-        function gerarConteudoCargos(tipo) {
-            let campos = $(`input[data-tipo="${tipo}"]`);
-            if (campos.length > 0) {
-                let conteudo = '';
-                campos.each(function () {
-                    let quantidade = $(this).attr('name').split('_').pop();
-                    let valor = $(this).val();
+        let cargosCarregados = Object.keys(dadosCargos).length > 0;
 
-                    if (!dadosCargosSalvos[tipo]) {
-                        dadosCargosSalvos[tipo] = {};
-                    }
-                    dadosCargosSalvos[tipo][quantidade] = {};
-
-                    conteudo += `<h5 style="text-align:center;">${tipo.replace('_', ' ').toUpperCase()} ${quantidade} - ${valor} %</h5>`;
-                    if (dadosCargos[tipo]) {
-                        conteudo += `<table class="table table-bordered"><tbody>`;
-                        for (const [campo, valorOriginal] of Object.entries(dadosCargos[tipo])) {
-                            let valorFormatado = formatarValor(valorOriginal);
-                            let campoId = sanitizeId(`${campo}_${tipo}_${quantidade}`);
-                            conteudo += `
-                                <tr>
-                                    <td><h6 for="${campoId}">${campo}</h6></td>
-                                    <td>
-                                        <div class="input-group">
-                                            <span class="input-group-text">R$</span>
-                                            <input type="text" id="${campoId}" class="form-control" value="${valorFormatado}">
-                                        </div>
-                                    </td>
-                                </tr>`;
-                            dadosCargosSalvos[tipo][quantidade][campo] = valorFormatado;
+        if (cargosCarregados) {
+            function gerarConteudoCargos(tipo) {
+                let campos = $(`input[data-tipo="${tipo}"]`);
+                if (campos.length > 0) {
+                    let conteudo = '';
+                    campos.each(function () {
+                        let quantidade = $(this).attr('name').split('_').pop();
+                        let valor = $(this).val(); // Captura o valor do input
+            
+                        // Adicionar o valor do input de cada cargo
+                        if (!dadosCargosSalvos[tipo]) {
+                            dadosCargosSalvos[tipo] = {};
                         }
-                        conteudo += `</tbody></table>`;
-                    }
-                });
-                return conteudo;
-            }
-            return '';
-        }
+            
+                        // Armazena o valor capturado do input no objeto `dadosCargosSalvos`
+                        dadosCargosSalvos[tipo][quantidade] = {
+                            valor: valor  // Armazena o valor do cargo
+                        };
+            
+                        conteudo += `<h5 style="text-align:center;">${tipo.replace('_', ' ').toUpperCase()} ${quantidade} - ${valor} %</h5>`;
+                        if (dadosCargos[tipo]) {
+                            conteudo += `<table class="table table-bordered"><tbody>`;
+                            for (const [campo, valorOriginal] of Object.entries(dadosCargos[tipo])) {
+                                let valorFormatado = formatarValor(valorOriginal);
+                                let campoId = sanitizeId(`${campo}_${tipo}_${quantidade}`);
+                                conteudo += `
+                                    <tr>
+                                        <td><h6 for="${campoId}">${campo}</h6></td>
+                                        <td>
+                                            <div class="input-group">
+                                                <span class="input-group-text">R$</span>
+                                                <input type="text" id="${campoId}" class="form-control" value="${valorFormatado}">
+                                            </div>
+                                        </td>
+                                    </tr>`;
+                                dadosCargosSalvos[tipo][quantidade][campo] = valorFormatado; // Salva os outros campos normalmente
+                            }
+                            conteudo += `</tbody></table>`;
+                        }
+                    });
+                    return conteudo;
+                }
+                return '';
+            }                                 
 
-        let tiposDeCargos = ['coordenador_junior', 'coordenador_pleno', 'coordenador_senior', 'analista_junior', 'analista_pleno', 'analista_senior', 'assistente', 'auxiliar'];
-        tiposDeCargos.forEach(tipo => {
-            let conteudoTipo = gerarConteudoCargos(tipo);
-            if (conteudoTipo) {
-                modalBodyContent += conteudoTipo;
-            }
-        });
+            let tiposDeCargos = ['coordenador_junior', 'coordenador_pleno', 'coordenador_senior', 'analista_junior', 'analista_pleno', 'analista_senior', 'assistente', 'auxiliar'];
+            tiposDeCargos.forEach(tipo => {
+                let conteudoTipo = gerarConteudoCargos(tipo);
+                if (conteudoTipo) {
+                    modalBodyContent += conteudoTipo;
+                }
+            });
 
-        if (modalBodyContent === '') {
-            modalBodyContent = '<p>Não há cargos adicionados.</p>';
-            $('#calcular-btn').prop('disabled', true);
+            if (modalBodyContent === '') {
+                modalBodyContent = '<p>Não há cargos adicionados.</p>';
+                $('#calcular-btn').prop('disabled', true);
+            } else {
+                $('#calcular-btn').prop('disabled', false);
+            }
+
+            $('#modal-body-content').html(modalBodyContent);
+            $('#avancarModal').modal('show');
         } else {
-            $('#calcular-btn').prop('disabled', false);
+            alert('Nenhum cargo foi carregado do backend.');
         }
-
-        $('#modal-body-content').html(modalBodyContent);
-        $('#avancarModal').modal('show');
     });
 
     function getCookie(name) {
@@ -235,22 +249,28 @@ $(document).ready(function () {
             lucro_desejado: $('#lucro_desejado').val(),
             ipca: $('#ipca').val()
         };
-
+    
         let tiposDeCargos = ['coordenador_junior', 'coordenador_pleno', 'coordenador_senior', 'analista_junior', 'analista_pleno', 'analista_senior', 'assistente', 'auxiliar'];
-
+    
         tiposDeCargos.forEach(function (tipo) {
             if (dadosCargosSalvos[tipo]) {
                 dadosParaEnviar[tipo] = {};
                 Object.keys(dadosCargosSalvos[tipo]).forEach(function (indice) {
                     dadosParaEnviar[tipo][indice] = {};
+    
+                    // Adicionar o valor do input do cargo ao dado que será enviado
+                    dadosParaEnviar[tipo][indice]['valor'] = dadosCargosSalvos[tipo][indice]['valor'];
+    
                     Object.keys(dadosCargosSalvos[tipo][indice]).forEach(function (campo) {
-                        let valorCampo = $(`#${sanitizeId(campo + '_' + tipo + '_' + indice)}`).val();
-                        dadosParaEnviar[tipo][indice][campo] = valorCampo;
+                        if (campo !== 'valor') { // Evita sobrescrever o valor já armazenado
+                            let valorCampo = $(`#${sanitizeId(campo + '_' + tipo + '_' + indice)}`).val();
+                            dadosParaEnviar[tipo][indice][campo] = valorCampo;
+                        }
                     });
                 });
             }
         });
-
+    
         console.log('Dados a serem enviados para o backend:', dadosParaEnviar);
 
         $.ajax({
@@ -262,11 +282,17 @@ $(document).ready(function () {
                 if (response.status === 'success') {
                     let resultados = response.resultados;
                     let tabelaHtml = '';
+                    let contagemCargos = {};
         
                     resultados.forEach(resultado => {
+                        // Contar a quantidade de vezes que cada cargo aparece
+                        let cargo = resultado.cargo;
+                        contagemCargos[cargo] = (contagemCargos[cargo] || 0) + 1;
+        
+                        // Adicionar linha à tabela
                         tabelaHtml += `
                             <div class="table-responsive">
-                                <h4 class="text-center"><strong>${resultado.cargo}</strong></h4>
+                                <h4 class="text-center"><strong>${cargo} (${contagemCargos[cargo]})</strong></h4>
                                 <table class="table table-bordered">
                                     <tbody>
                                         <!-- Primeira Linha -->
@@ -325,7 +351,7 @@ $(document).ready(function () {
                                             <th>Auxílio Creche</th>
                                             <td>R$ ${formatarValor(resultado.aux_creche)}</td>
                                         </tr>
-                
+        
                                         <!-- Total -->
                                         <tr class="table-success">
                                             <th colspan="2"><strong>Total</strong></th>
@@ -344,10 +370,71 @@ $(document).ready(function () {
                     alert('Erro ao calcular precificação: ' + response.message);
                 }
             },
-            error: function () {
-                alert('Erro ao realizar a requisição.');
-                console.log('Dados para o backend:', dadosParaEnviar);
+            error: function (xhr, status, error) {
+                console.log('Erro:', status, error);
+                console.log('Resposta do servidor:', xhr.responseText);
             }
-        });        
+        });
     });
+    $('#salvar-btn').on('click', function () {
+        $('#resultadosModal').modal('hide');
+        $('#salvarInformacoesModal').modal('show');
+    });
+    document.querySelector('#salvar-pdf').addEventListener('click', function() {
+        document.getElementById('nome_cliente').value = '';
+        document.getElementById('numero_proposta').value = '';
+        const nomeCliente = document.getElementById('nome_cliente').value;
+        const numeroProposta = document.getElementById('numero_proposta').value;
+        
+        if (nomeCliente && numeroProposta) {
+            fetch('/salvar_pdf/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    nome_cliente: nomeCliente,
+                    numero_proposta: numeroProposta
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok.');
+                }
+                return response.blob();  // Trate a resposta como blob
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Precificacao-Equipe_Proposta${numeroProposta}_${nomeCliente}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                alert('Erro ao enviar a solicitação: ' + error);
+            });
+        } else {
+            alert('Por favor, preencha todos os campos.');
+        }
+    });
+    
+    // Função para obter o CSRF token do cookie
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }    
 });
