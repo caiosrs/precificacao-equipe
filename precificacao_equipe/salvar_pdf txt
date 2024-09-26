@@ -1,0 +1,94 @@
+def salvar_pdf(request):
+    if request.method == 'POST':
+        try:
+            # Processa os dados recebidos via POST
+            dados_cliente_proposta = json.loads(request.body.decode('utf-8'))
+
+            # Pegando nome do cliente e número da proposta
+            nome_cliente = dados_cliente_proposta.get('nome_cliente')
+            numero_proposta = dados_cliente_proposta.get('numero_proposta')
+
+            # Pegando as informações necessárias dos cargos
+            qtd_funcionarios, lucro_desejado, ipca = processar_dados_entrada(dados_cliente_proposta)
+            
+            cargos = dados_cliente_proposta.get('cargos', [])  # Recebe a lista de cargos
+
+            print(f"Lucro Desejado Float: {lucro_desejado}")
+
+            # Abrindo a planilha e verificando o lucro desejado
+            planilha_indices = pd.read_excel(r'\\10.1.1.2\ti\BaseCalculos\PrecificacaoEquipe.xlsx', sheet_name='Índice Informatec')
+
+            # Verifica se o lucro_desejado está nas células A6 até A10 e pega o valor da célula à direita
+            valor_referencia = 0
+            for i in range(5, 10):  # A6 até A10
+                valor_coluna_a = planilha_indices.iloc[i, 0]
+                if valor_coluna_a == lucro_desejado:
+                    valor_referencia = planilha_indices.iloc[i, 1]  # Pega o valor da célula à direita
+                    break
+            
+            if valor_referencia == 0:
+                valor_referencia = 0  # Se não encontrar, usa 0
+            print(f"Valor Referencia: {valor_referencia}")
+
+            # Cálculo do valor total de cada cargo
+            total_por_cargo = []
+            for cargo in cargos:
+                nome_cargo = cargo.get('cargo', 'Cargo não informado')
+                valores_totais = cargo.get('totais', [])  # Lista de valores totais por cargo
+
+                if valores_totais:
+                    # Pegando o último valor da lista de valores totais
+                    ultimo_valor_str = valores_totais[-1].get('total', '0,00')  # Pega o último valor total
+                else:
+                    ultimo_valor_str = '0,00'  # Se não houver valores, usar '0,00'
+
+                try:
+                    ultimo_valor_total = float(ultimo_valor_str.replace('R$', '').replace('.', '').replace(',', '.'))
+                except ValueError:
+                    ultimo_valor_total = 0.0  # Define como zero se houver erro na conversão
+
+                print(f"Último Valor {ultimo_valor_total}")
+
+                # Cálculo do custo de M.O. (mão de obra)
+                custo_mo = valor_referencia * lucro_desejado
+                print(f"Valor do Custo M.O: {custo_mo}")
+
+                total_por_cargo.append({'cargo': nome_cargo, 'valor_total': ultimo_valor_total})
+                print(f"Cargo: {nome_cargo}, Último Valor Total: {ultimo_valor_total}")
+
+            # Criar o PDF
+            buffer = io.BytesIO()
+            p = canvas.Canvas(buffer, pagesize=letter)
+
+            # Cabeçalho do PDF
+            p.drawString(250, 750, f"Nome do Cliente: {nome_cliente}")
+            p.drawString(250, 725, f"Número da Proposta: {numero_proposta}")
+
+            # Adicionar o total de cada cargo no PDF
+            y = 500
+            for cargo in total_por_cargo:
+                p.drawString(700, y, f"Cargo: {cargo['cargo']}, Valor do Custo M.O: {custo_mo}")
+                y -= 50
+
+            p.showPage()
+            p.save()
+
+            # Enviar PDF como resposta
+            pdf = buffer.getvalue()
+            buffer.close()
+
+            response = HttpResponse(pdf, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="Precificacao-Equipe_Proposta_{nome_cliente}_{numero_proposta}.pdf"'
+            return response
+
+        except json.JSONDecodeError:
+            print("Erro ao decodificar JSON.")
+            return JsonResponse({'status': 'error', 'message': 'Erro ao decodificar JSON na função Salvar PDF'}, status=400)
+        except ValueError as e:
+            print(f"Erro de valor: {e}")
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+        except Exception as e:
+            print(f"Erro ao calcular precificação: {e}")
+            return JsonResponse({'status': 'error', 'message': 'Erro interno do servidor'}, status=500)
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Método não permitido'}, status=405)

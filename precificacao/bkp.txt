@@ -1,0 +1,70 @@
+agora como eu faço para pegar o valor total de cada cargo ? preciso usar em um cálculo na funcao salvar_pdf.
+
+fiz alguns cálculos e estão certo, então preciso pegar o valor total de cada cargo para multiplicar com o valor_referencia da funcao salvar_pdf
+
+exemplo de saída:
+Resultados finais: [{'cargo': 'analista_junior', 'valor': 10.0, 'salario_base': 'R$ 2.625,62', 'salario_dissidio': 'R$ 2.700,10', 'decimo_terceiro': 'R$ 225,01', 'ferias': 'R$ 75,00', 'horas_extras': 'R$ 0,00', 'gratificacao': 'R$ 0,00', 'fgts': 'R$ 240,01', 'ass_medica': 'R$ 450,00', 'ass_odonto': 'R$ 21,96', 'seguro': 'R$ 7,27', 'vr': 'R$ 574,20', 'va': 'R$ 0,00', 'vt': 'R$ 200,00', 'gympass': 'R$ 14,73', 'reembolso': 'R$ 0,00', 'comissao': 'R$ 0,00', 'aux_creche': 'R$ 0,00', 'total': 'R$ 4.518,28'}, {'cargo': 'analista_pleno', 'valor': 20.0, 'salario_base': 'R$ 3.034,26', 'salario_dissidio': 'R$ 3.120,33', 'decimo_terceiro': 'R$ 260,03', 'ferias': 'R$ 86,68', 'horas_extras': 'R$ 0,00', 'gratificacao': 'R$ 0,00', 'fgts': 'R$ 277,36', 'ass_medica': 'R$ 450,00', 'ass_odonto': 'R$ 21,96', 'seguro': 'R$ 7,27', 'vr': 'R$ 574,20', 'va': 'R$ 0,00', 'vt': 'R$ 200,00', 'gympass': 'R$ 14,73', 'reembolso': 'R$ 0,00', 'comissao': 'R$ 0,00', 'aux_creche': 'R$ 0,00', 'total': 'R$ 5.032,56'}, {'cargo': 'assistente', 'valor': 25.0, 'salario_base': 'R$ 2.160,59', 'salario_dissidio': 'R$ 2.221,88', 'decimo_terceiro': 'R$ 185,16', 'ferias': 'R$ 61,72', 'horas_extras': 'R$ 0,00', 'gratificacao': 'R$ 0,00', 'fgts': 'R$ 197,50', 'ass_medica': 'R$ 450,00', 'ass_odonto': 'R$ 21,96', 'seguro': 'R$ 7,27', 'vr': 'R$ 574,20', 'va': 'R$ 0,00', 'vt': 'R$ 200,00', 'gympass': 'R$ 14,73', 'reembolso': 'R$ 0,00', 'comissao': 'R$ 0,00', 'aux_creche': 'R$ 0,00', 'total': 'R$ 3.959,42'}, {'cargo': 'auxiliar', 'valor': 20.0, 'salario_base': 'R$ 1.819,86', 'salario_dissidio': 'R$ 1.871,48', 'decimo_terceiro': 'R$ 155,96', 'ferias': 'R$ 51,99', 'horas_extras': 'R$ 0,00', 'gratificacao': 'R$ 0,00', 'fgts': 'R$ 166,35', 'ass_medica': 'R$ 450,00', 'ass_odonto': 'R$ 21,96', 'seguro': 'R$ 7,27', 'vr': 'R$ 574,20', 'va': 'R$ 0,00', 'vt': 'R$ 200,00', 'gympass': 'R$ 14,73', 'reembolso': 'R$ 0,00', 'comissao': 'R$ 0,00', 'aux_creche': 'R$ 0,00', 'total': 'R$ 3.533,94'}, {'cargo': 'auxiliar', 'valor': 30.0, 'salario_base': 'R$ 1.819,86', 'salario_dissidio': 'R$ 1.871,48', 'decimo_terceiro': 'R$ 155,96', 'ferias': 'R$ 51,99', 'horas_extras': 'R$ 0,00', 'gratificacao': 'R$ 0,00', 'fgts': 'R$ 166,35', 'ass_medica': 'R$ 450,00', 'ass_odonto': 'R$ 21,96', 'seguro': 'R$ 7,27', 'vr': 'R$ 574,20', 'va': 'R$ 0,00', 'vt': 'R$ 200,00', 'gympass': 'R$ 14,73', 'reembolso': 'R$ 0,00', 'comissao': 'R$ 0,00', 'aux_creche': 'R$ 0,00', 'total': 'R$ 3.543,94'}]
+
+def salvar_pdf(request):
+    if request.method == 'POST':
+        try:
+            # Processa os dados recebidos via POST
+            dados_cliente_proposta = json.loads(request.body.decode('utf-8'))
+            
+            nome_cliente = dados_cliente_proposta.get('nome_cliente')
+            numero_proposta = dados_cliente_proposta.get('numero_proposta')
+            lucro_desejado_str = dados_cliente_proposta.get('lucro_desejado', '0,00')
+
+            # Abrindo a planilha e verificando o lucro desejado
+            planilha_indices = pd.read_excel(r'\\10.1.1.2\ti\BaseCalculos\PrecificacaoEquipe.xlsx', sheet_name='Índice Informatec')
+            
+            # Convertendo o valor de lucro_desejado para float
+            lucro_desejado = float(lucro_desejado_str.replace('.', '').replace(',', '.'))
+
+            # Verifica se o lucro_desejado está nas células A6 até A10 e pega o valor da célula à direita
+            valor_referencia = 0
+            for i in range(5, 10):  # A6 até A10
+                valor_coluna_a = planilha_indices.iloc[i, 0]
+                if valor_coluna_a == lucro_desejado:
+                    valor_referencia = planilha_indices.iloc[i, 1]  # Pega o valor da célula à direita
+                    break
+            
+            if valor_referencia == 0:
+                valor_referencia = 0  # Se não encontrar, usa 0
+
+            # Simulação do cálculo do custo de M.O. (mão de obra)
+            custo_mo = valor_referencia * lucro_desejado
+            print(f"Valor do Custo M.O: {custo_mo}")
+
+            # Criar o PDF
+            buffer = io.BytesIO()
+            p = canvas.Canvas(buffer, pagesize=letter)
+
+            # Cabeçalho do PDF
+            p.drawString(100, 800, f"Nome do Cliente: {nome_cliente}")
+            p.drawString(100, 750, f"Número da Proposta: {numero_proposta}")
+            p.drawString(100, 700, f"Valor do Lucro Desejado: (lucro_desejado)")
+            p.drawString(100, 650, f"Valor do Custo M.O: (custo_mo)")
+
+            p.showPage()
+            p.save()
+
+            # Enviar PDF como resposta
+            pdf = buffer.getvalue()
+            buffer.close()
+
+            response = HttpResponse(pdf, content_type='application/pdf')
+            response['Content-Disposition'] = f'attachment; filename="Proposta_{nome_cliente}_{numero_proposta}.pdf"'
+            return response
+
+        except json.JSONDecodeError:
+            print("Erro ao decodificar JSON.")
+            return JsonResponse({'status': 'error', 'message': 'Erro ao decodificar JSON na função Salvar PDF'}, status=400)
+        except ValueError as e:
+            print(f"Erro de valor: {e}")
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+        except Exception as e:
+            print(f"Erro ao calcular precificação: {e}")
+            return JsonResponse({'status': 'error', 'message': 'Erro interno do servidor'}, status=500)
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Método não permitido'}, status=405)

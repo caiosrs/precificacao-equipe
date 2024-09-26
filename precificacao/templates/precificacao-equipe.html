@@ -7,20 +7,20 @@
 {% block content %}
     {% load static %}
     <h1 class="mt-5" style="text-align: center;">Precificação de Equipe</h1>
-    <form method="post" id="" class="mt-3" style="padding: 20px;">
+    <form method="post" action="{% url 'precificacao-equipe' %}" class="mt-3" style="padding: 20px;">
         {% csrf_token %}
         <div class="form-group">
             <label for="qtd_funcionario_cliente">Quantidade de Funcionários:</label>
-            <input type="number" class="form-control" id="id_qtd_funcionario_cliente" name="qtd_funcionario_cliente" placeholder="Número de Funcionários do Cliente">
+            <input type="text" class="form-control" name="qtd_funcionario_cliente" id="qtd_funcionario_cliente" placeholder="Quantidade de Funcionários" value="{{ qtd_funcionario_cliente }}">
         </div>
         <div class="form-row">
             <div class="form-group col-md-6">
-                <label for="id_lucro_desejado">Lucro Desejado:</label>
-                <input type="number" class="form-control" id="id_lucro_desejado" name="lucro_desejado">
+                <label for="lucro_desejado">Lucro Desejado (%):</label>
+                <input type="text" class="form-control" name="lucro_desejado" id="lucro_desejado" placeholder="Lucro Desejado (%)" value="{{ lucro_desejado }}">
             </div>
             <div class="form-group col-md-6">
-                <label for="id_ipca">IPCA:</label>
-                <input type="number" class="form-control" id="id_ipca" name="ipca">
+                <label id="ipca-label" for="ipca">IPCA (%):</label>
+                <input type="text" class="form-control" name="ipca" id="ipca" placeholder="IPCA (%)" value="{{ ipca }}">
             </div>
         </div>
 
@@ -98,35 +98,56 @@
                     </div>
                 </div>
             </div>
-        </div>    
+        </div>
 
         <!-- Modal Resultados -->
-        <div class="modal fade" id="resultadosModal" tabindex="-1" role="dialog" aria-labelledby="resultadosModalLabel" aria-hidden="true" style="max-height:100%; max-width: 100%; overflow-y: auto;">
-            <div class="modal-dialog modal-lg" role="document">
+        <div class="modal fade" id="resultadosModal" tabindex="-1" role="dialog" aria-labelledby="resultadosModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl">
                 <div class="modal-content">
                     <div class="modal-header">
-                        <h5 class="modal-title" id="resultadosModalLabel">Resultados Calculados</h5>
+                        <h5 class="modal-title" id="resultadosModalLabel">Resultados da Precificação</h5>
                         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
                             <span aria-hidden="true">&times;</span>
                         </button>
                     </div>
-                    <div class="modal-body" id="modal-body-content">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Cargo</th>
-                                    <th>Descrição</th>
-                                    <th>Valor (%)</th>
-                                </tr>
-                            </thead>
-                            <tbody id="cargoTabela">
-                                <!-- As linhas da tabela serão inseridas aqui via JavaScript -->
-                            </tbody>
-                        </table>
+                    <div class="modal-body">
+                        <!-- A tabela será inserida aqui pelo JavaScript -->
                     </div>
                     <div class="modal-footer">
-                        <button type="button" id="salvar" class="btn btn-primary">Salvar</button>
+                        <button type="button" class="btn btn-success" id="salvar-btn">Salvar</button>
                         <button type="button" class="btn btn-danger" data-dismiss="modal">Fechar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Salvar Informações -->
+        <div class="modal fade" id="salvarInformacoesModal" tabindex="-1" aria-labelledby="salvarInformacoesModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="salvarInformacoesModalLabel">Informações para Salvar</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="salvar-pdf-form">
+                            {% csrf_token %}
+                            <div class="form-group">
+                                <label for="nome_cliente">Nome do Cliente:</label>
+                                <input type="text" class="form-control" id="nome_cliente" name="nome_cliente" placeholder="Nome do Cliente" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="numero_proposta">Número da Proposta:</label>
+                                <input type="text" class="form-control" id="numero_proposta" name="numero_proposta" placeholder="Número da Proposta" required>
+                                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                            </div>
+                            <div class="form-group">
+                                <button type="button" id="salvar-pdf" class="btn btn-success">Salvar em PDF</button>
+                                <button type="button" class="btn btn-danger" data-dismiss="modal">Fechar</button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -134,13 +155,11 @@
 
     </form>
 
-    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJTy5KVphtPhzWj9WO1clHTMGaNSjkq6m56jUMz5sgF86f11Y" crossorigin="anonymous"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-pjaaA8dDz/4+6bghyIedp5j00VXIikPoE4A1p6LY4DmlO8RAf2zR9CfbERZ6D5Fm" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.0/xlsx.full.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
 
     <script src="{% static 'js/avancarModal.js' %}"></script>
-    <script src="{% static 'js/resultadosModal.js' %}"></script>
 
     <script>
         $(document).ready(function () {
@@ -154,7 +173,7 @@
                 assistente: 0,
                 auxiliar: 0
             };
-
+    
             // Armazena todos os campos adicionados por tipo
             let cargosAdicionados = {
                 coordenador_junior: [],
@@ -166,17 +185,18 @@
                 assistente: [],
                 auxiliar: []
             };
-
+    
             function adicionarCampo(tipo) {
                 contador[tipo]++;
                 const novoCampo = `
                     <div class="input-group mb-3" style="padding-top: 5px;">
-                        <input type="text" class="form-control" id="${tipo}_${contador[tipo]}" name="${tipo}_${contador[tipo]}" placeholder="${tipo.replace('_', ' ').replace('_', ' ')} ${contador[tipo]}" data-tipo="${tipo}">
+                        <input type="number" class="form-control" id="${tipo}_${contador[tipo]}" name="${tipo}_${contador[tipo]}" placeholder="${tipo.replace('_', ' ')} ${contador[tipo]}" data-tipo="${tipo}">
                         <span class="input-group-text" id="basic-addon2">%</span>
                     </div>
                 `;
                 $(`#${tipo}_fields`).append(novoCampo);
             }
+    
 
             $('#add_coordenador_junior').on('click', function () {
                 adicionarCampo('coordenador_junior');
@@ -202,17 +222,39 @@
             $('#add_auxiliar').on('click', function () {
                 adicionarCampo('auxiliar');
             });
-
+    
             $('#limpar-btn').on('click', function () {
-                $('#id_qtd_funcionario_cliente').val('');
-                $('#id_lucro_desejado').val('');
-                $('#id_ipca').val('');
+                $('#qtd_funcionario_cliente').val('');
+                $('#lucro_desejado').val('');
+                $('#ipca').val('');
                 $('.input-group').remove();
                 for (let tipo in contador) {
                     contador[tipo] = 0;
                     cargosAdicionados[tipo] = [];
                 }
             });
-        });
-    </script>        
+
+            // Função para alterar o label com base na data atual
+            function atualizarLabelIPCA() {
+                const hoje = new Date();
+                const mesAtual = hoje.getMonth() + 1; // getMonth() retorna de 0 a 11, então somamos 1
+                const anoAtual = hoje.getFullYear();
+                let labelIPCA = '';
+
+                if (mesAtual >= 8) {
+                    // Se o mês atual for agosto ou posterior
+                    labelIPCA = `IPCA (08/${anoAtual} - ${mesAtual.toString().padStart(2, '0')}/${anoAtual}):`;
+                } else {
+                    // Se o mês atual for antes de agosto
+                    labelIPCA = `IPCA (08/${anoAtual - 1} - ${mesAtual.toString().padStart(2, '0')}/${anoAtual}):`;
+                }
+
+                // Atualizar o texto do label
+                document.getElementById('ipca-label').innerText = labelIPCA;
+            }
+
+            // Chamar a função para atualizar a label quando a página carregar
+            atualizarLabelIPCA();
+                });
+    </script>    
 {% endblock %}
