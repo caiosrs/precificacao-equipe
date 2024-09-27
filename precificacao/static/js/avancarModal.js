@@ -27,9 +27,9 @@ $(document).ready(function () {
         let lucroDesejado = $('#lucro_desejado').val();
         let ipca = $('#ipca').val();
 
-        console.log('Quantidade de Funcionários:', qtdFuncionarioCliente);
-        console.log('Lucro Desejado:', lucroDesejado);
-        console.log('IPCA:', ipca);
+        //console.log('Quantidade de Funcionários:', qtdFuncionarioCliente);
+        //console.log('Lucro Desejado:', lucroDesejado);
+        //console.log('IPCA:', ipca);
 
         const dadosCargos = {
             'auxiliar': {
@@ -273,7 +273,7 @@ $(document).ready(function () {
             }
         });
     
-        console.log('Dados a serem enviados para o backend:', dadosParaEnviar);
+        //console.log('Dados a serem enviados para o backend:', dadosParaEnviar);
 
         $.ajax({
             type: 'POST',

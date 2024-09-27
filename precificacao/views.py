@@ -5,8 +5,15 @@ import json
 from django.views.decorators.csrf import csrf_exempt
 import locale
 from reportlab.lib.pagesizes import letter
-from fpdf import FPDF
 import pandas as pd
+import json
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+from datetime import datetime
+from reportlab.lib.units import inch
+from django.views.decorators.csrf import csrf_exempt
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 # Define o local como Brasil para formatação monetária
 locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
@@ -69,7 +76,7 @@ def salvar_pdf(request):
             resultados = request.session.get('resultados', [])
             if not resultados:
                 return JsonResponse({'status': 'error', 'message': 'Nenhum resultado encontrado.'}, status=400)
-            
+
             input_iniciais = request.session.get('input_iniciais', [])
             if not input_iniciais:
                 return JsonResponse({'status': 'error', 'message': 'Nenhum input iniciais encontrado.'}, status=400)
@@ -78,16 +85,16 @@ def salvar_pdf(request):
             qtd_funcionarios = input_iniciais.get('qtd_funcionarios', 'N/A')
 
             # Encontrar o índice Informatec correto
-            for i in range(5, 10):  
+            for i in range(5, 10):
                 indice_informatec_celula = planilha_indices.iloc[i-1, 0]
                 if pd.isna(indice_informatec_celula):
                     continue
-                indice_informatec_celula = float(indice_informatec_celula) 
+                indice_informatec_celula = float(indice_informatec_celula)
                 if indice_informatec_celula == lucro_desejado:
                     indice_informatec = float(planilha_indices.iloc[i-1, 1])
                     break
             else:
-                indice_informatec = 1.9935  # Valor padrão caso não encontre
+                indice_informatec = 0  # 1.9935 média
 
             # Formatar lucro desejado
             if isinstance(lucro_desejado, (int, float)):
@@ -95,24 +102,112 @@ def salvar_pdf(request):
             else:
                 lucro_desejado_formatado = lucro_desejado
 
-            # Criar PDF
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("Arial", size=12)
+            # Adicionar o caminho da imagem
+            imagem_path = r'\\10.1.1.2\TI\BaseCalculos\static\img\informatec_servicos_em_rh.jpg'
 
-            # Adicionar conteúdo ao PDF
-            pdf.cell(200, 10, f'Proposta: {numero_proposta} | Cliente: {nome_cliente}', ln=True)
-            pdf.cell(200, 10, f'Lucro Desejado: {lucro_desejado_formatado}%', ln=True)
-            pdf.cell(200, 10, f'Índice Informatec: {indice_informatec:.4f}', ln=True)
+            # Obter data e hora atual para o subtítulo
+            agora = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
 
-            # Exibir custo de mão de obra direta da equipe
+            # Criar PDF usando ReportLab
+            pdf_buffer = HttpResponse(content_type='application/pdf')
+            pdf_buffer['Content-Disposition'] = f'attachment; filename=Precificacao_Equipe_Proposta_{numero_proposta}_{nome_cliente}.pdf'
+
+            doc = SimpleDocTemplate(pdf_buffer, pagesize=letter)
+            elements = []
+
+            styles = getSampleStyleSheet()
+
+            # Criar estilos personalizados para título e subtítulo
+            titulo_style = ParagraphStyle(name='Titulo', fontSize=16, alignment=TA_LEFT)
+            subtitulo_style = ParagraphStyle(name='Subtitulo', fontSize=10, alignment=TA_LEFT)
+
+            # Definir proposta e cliente
+            proposta = f"Proposta {numero_proposta}"
+            cliente = f"Cliente {nome_cliente}"
+
+            # Montar o título e subtítulo em linhas separadas
+            titulo = Paragraph(f"<strong>{proposta}</strong><br/><br/><strong>{cliente}</strong>", titulo_style)
+
+            # Definir o subtítulo com estilo centralizado
+            subtitulo_style = ParagraphStyle(
+                name="Subtitle",
+                fontSize=10,
+                alignment=TA_CENTER,  # Alinha o subtítulo ao centro
+                textColor=colors.black
+            )
+
+            # Subtítulo separado do título
+            subtitulo = Paragraph(f"Gerado em: {agora}", subtitulo_style)
+
+            # Criar imagem e definir tamanho
+            logo = Image(imagem_path)
+            logo.drawHeight = 1 * inch  # Altura da imagem
+            logo.drawWidth = 2 * inch   # Largura da imagem
+
+            # Definir os dados da tabela com imagem e título separados
+            titulo_data = [
+                [logo, titulo],  # Primeira linha: imagem e título
+            ]
+
+            # Criar tabela para imagem e título
+            titulo_table = Table(titulo_data, colWidths=[2 * inch, 3 * inch])
+            titulo_table.setStyle(TableStyle([
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),  # Alinhar verticalmente ao centro
+                ('ALIGN', (1, 0), (1, 0), 'LEFT'),       # Alinhar o título à esquerda
+                ('TOPPADDING', (1, 0), (1, 0), -10),     # Ajustar o espaçamento do título
+                ('LEFTPADDING', (1, 0), (1, 0), 20), 
+            ]))
+
+            # Adicionar tabela de título e subtítulo ao PDF
+            elements.append(titulo_table)
+            elements.append(Spacer(1, 6))  # Espaço menor entre título e subtítulo
+
+            # Adicionar o subtítulo centralizado acima da tabela "resumo"
+            elements.append(subtitulo)
+            elements.append(Spacer(1, 12))  # Espaço entre subtítulo e resumo
+
+            # Continuar com o restante do conteúdo, como a tabela "resumo"
+            resumo_data = [
+                ['RESUMO'],  # Cabeçalho centralizado
+                ['Número de Funcionários', qtd_funcionarios],
+                ['Equipe', 'Percentuais']
+            ]
+
+            for cargo in resultados:
+                porcento_input_sem_ajuste = cargo.get('valor', 'N/A')
+                porcento_input = str(int(porcento_input_sem_ajuste)) if isinstance(porcento_input_sem_ajuste, (float, int)) else str(porcento_input_sem_ajuste).rstrip('.0')
+                resumo_data.append([f'{formatar_cargo(cargo["cargo"])}', f'{porcento_input}%'])
+
+            resumo_table = Table(resumo_data, colWidths=[250, 150])
+            resumo_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('SPAN', (0, 0), (-1, 0)),  # Mescla a primeira linha para centralizar "RESUMO"
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#49b1d8')),  # Cor de fundo para o cabeçalho
+                ('FONTSIZE', (0, 0), (-1, -1), 12),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),  # Grade ao redor da tabela
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('ALIGN', (0, 1), (-1, -1), 'LEFT'),  # Alinha as descrições à esquerda
+            ]))
+            elements.append(resumo_table)
+            elements.append(Spacer(1, 12))  # Espaço entre as tabelas
+
+            # Tabela com "FORMAÇÃO DE PREÇO"
+            formacao_data = [
+                ['FORMAÇÃO DE PREÇO'], 
+                ['Lucro Desejado', lucro_desejado_formatado + '%'],
+                ['Índice Informatec', f'{indice_informatec:.4f}'.replace('.', ',')],
+            ]
+
+            # Cálculos de custos e valores
             custo_mo_equipe = 0  
             for cargo in resultados:
                 total_str = cargo.get('total', '0,00').replace('R$ ', '').strip()
                 total = float(total_str.replace('.', '').replace(',', '.'))
 
                 porcento_input_sem_ajuste = cargo.get('valor', 'N/A')
-                
+
                 if isinstance(porcento_input_sem_ajuste, (float, int)):
                     porcento_input = str(int(porcento_input_sem_ajuste))
                     custo_mo = total * (porcento_input_sem_ajuste / 100)
@@ -122,53 +217,51 @@ def salvar_pdf(request):
 
                 custo_mo_equipe += custo_mo
 
-            pdf.cell(200, 10, f'Custo M.O Direta - Equipe: {formatar_monetario(custo_mo_equipe)}', ln=True)
-
+            formacao_data.append(['Custo M.O Direta - Equipe', formatar_monetario(custo_mo_equipe)])
             indice_despesa = float(planilha_indices.iloc[9, 1])
-            pdf.cell(200, 10, f'índice Despesa: {indice_despesa:.4f}', ln=True)
+            formacao_data.append(['Índice Despesa', f'{indice_despesa:.4f}'.replace('.', ',')])
 
             despesas = indice_despesa * custo_mo_equipe
-            pdf.cell(200, 10, f'Despesas: {formatar_monetario(despesas)}', ln=True)
+            formacao_data.append(['Despesas', formatar_monetario(despesas)])
 
             faturamento_liquido = indice_informatec * custo_mo_equipe
-            pdf.cell(200, 10, f'Faturamento Líquido: {formatar_monetario(faturamento_liquido)}', ln=True)
+            formacao_data.append(['Faturamento Líquido', formatar_monetario(faturamento_liquido)])
 
             lucro = faturamento_liquido - despesas - custo_mo_equipe
-            pdf.cell(200, 10, f'Lucro: {formatar_monetario(lucro)}', ln=True)
+            formacao_data.append(['Lucro', formatar_monetario(lucro)])
 
             imposto = float(planilha_indices.iloc[10, 1]) / 100
-
-            # Formatar o valor para exibição no PDF
-            imposto_formatado = f'{imposto * 100:.2f}'.replace('.', ',')
-            pdf.cell(200, 10, f'Imposto: {imposto_formatado}%', ln=True)
+            formacao_data.append(['Imposto', f'{imposto * 100:.2f}'.replace('.', ',') + '%'])
 
             valor_proposta = faturamento_liquido / (1 - imposto)
-            pdf.cell(200, 10, f'Valor da Proposta: {formatar_monetario(valor_proposta)}', ln=True)
+            formacao_data.append(['Valor da Proposta', formatar_monetario(valor_proposta)])
 
             valor_proposta_base_por_func = valor_proposta / qtd_funcionarios
-            pdf.cell(200, 10, f'Valor da Proposta Base por Func.: {formatar_monetario(valor_proposta_base_por_func)}', ln=True)
+            formacao_data.append(['Valor da Proposta Base por Func.', formatar_monetario(valor_proposta_base_por_func)])
 
             valor_proposta_10porcento = valor_proposta * 1.1
-            pdf.cell(200, 10, f'Valor Proposta + 10% Negociação: {formatar_monetario(valor_proposta_10porcento)}', ln=True)
+            formacao_data.append(['Valor Proposta + 10% Negociação', formatar_monetario(valor_proposta_10porcento)])
 
             valor_proposta_10porcento_por_func = valor_proposta_base_por_func * 1.1
-            pdf.cell(200, 10, f'Valor Proposta + 10% Negociação por Func.: {formatar_monetario(valor_proposta_10porcento_por_func)}', ln=True)
+            formacao_data.append(['Valor Proposta + 10% Negociação por Func.', formatar_monetario(valor_proposta_10porcento_por_func)])
 
-            # Adicionar outra linha em branco para separar
-            pdf.cell(200, 10, '', ln=True)
-
-            pdf.cell(200, 10, f'Número de Funcionários: {qtd_funcionarios}', ln=True)
-            pdf.cell(200, 10, 'Equipe e Percentuais:', ln=True)
-            for cargo in resultados:
-                porcento_input_sem_ajuste = cargo.get('valor', 'N/A')
-                porcento_input = str(int(porcento_input_sem_ajuste)) if isinstance(porcento_input_sem_ajuste, (float, int)) else str(porcento_input_sem_ajuste).rstrip('.0')
-
-                pdf.cell(200, 10, f'Cargo: {formatar_cargo(cargo["cargo"])} - {porcento_input}%', ln=True)
+            formacao_table = Table(formacao_data, colWidths=[250, 150])
+            formacao_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
+                ('SPAN', (0, 0), (-1, 0)),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#49b1d8')),
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 12),
+                ('GRID', (0, 0), (-1, -1), 1, colors.black),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+                ('ALIGN', (0, 1), (-1, -1), 'LEFT'),
+            ]))
+            elements.append(formacao_table)
 
             # Gerar PDF
-            response = HttpResponse(pdf.output(dest='S').encode('latin1'), content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename=Precificacao_Equipe_Proposta_{numero_proposta}_{nome_cliente}.pdf'
-            return response
+            doc.build(elements)
+            return pdf_buffer
 
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
@@ -270,8 +363,8 @@ def calculo_precificacao(request):
 
             request.session['resultados'] = resultados
             request.session['input_iniciais'] = inputs_iniciais
-            print(f"Inputs Iniciais: {inputs_iniciais}")
-            print(f"Resultados finais: {resultados}")
+            #print(f"Inputs Iniciais: {inputs_iniciais}")
+            #print(f"Resultados finais: {resultados}")
 
             return JsonResponse({'status': 'success', 'resultados': resultados})
 
